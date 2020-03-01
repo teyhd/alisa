@@ -1,0 +1,16 @@
+[{
+     "autorized":["77DF03EA4C60CAAC5F65B1614190796719E00C6EF3B06F7D0F05C5F387196178"],
+     "coffSin":[{"name":"coffee","privat":true},"кофе","чай","чаю","чайку","чаечек"],
+     "offSin":[{"name":"get_dev_off","privat":true},"выключи","оффни"],
+     "raspsin":[{"name":"rasp_get_date","privat":false},"расписание","пары","пара","фары"],
+     "rebsin":[{"name":"get_dev_reb","privat":true},"перезагрузи"],
+     "slesin":[{"name":"get_dev_sleep","privat":true},"сон"]
+ },
+{
+ "comp":[{"name":"comppar","hostp":"192.168.0.104","type":"win"},"компьютер","пк","комп"],
+ "labtop" : [{"name":"labtoppar","hostp":"192.168.0.106","type":"win"},"ноутбук","ноут"],
+ "serv" : [{"name":"servpar","hostp":"192.168.0.107","type":"lin"},"сервер"],
+ "calend" : [{"name":"calendpar","hostp":"192.168.0.103","type":"lin"},"календарь"],
+ "coffedev" : [{"name":"coffedevpar","hostp":"192.168.0.103","type":"coffee"},"кофеварку"]
+}
+ ]

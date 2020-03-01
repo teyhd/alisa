@@ -8,6 +8,9 @@ var io = require('socket.io');
 var key = fs.readFileSync('/var/www/html/alisa/encryption/private.key');
 var cert = fs.readFileSync('/var/www/html/alisa/encryption/primary.crt');
 var ca = fs.readFileSync('/var/www/html/alisa/encryption/intermediate.crt');
+var settings = JSON.parse(fs.readFileSync('/var/www/html/alisa/encryption/set.json', 'utf8')); //Берем настройки из файла
+var struct = JSON.parse(fs.readFileSync('/var/www/html/alisa/encryption/struct.json', 'utf8')); //Подгружаем структуры
+
 var options = {
     key: key,
     cert: cert,
@@ -19,26 +22,20 @@ var server = https.createServer(options, app);
 var io = require('socket.io').listen(server);
 server.listen(1883); console.log("Навык запущен");
 
-var autorized = ["77DF03EA4C60CAAC5F65B1614190796719E00C6EF3B06F7D0F05C5F387196178"];
-var coffSin = [{name:"coffee",privat:true},"кофе","чай","чаю","чайку","чаечек"];
-var offSin = [{name:"get_dev_off",privat:true},"выключи","оффни"];
-var raspsin = [{name:"rasp_get_date",privat:false},"расписание","пары","пара","фары"];
-var rebsin = [{name:"get_dev_reb",privat:true},"перезагрузи"];
-var slesin = [{name:"get_dev_sleep",privat:true},"сон"];
+var autorized = struct[0].autorized;
+var coffSin = struct[0].coffSin;
+var offSin = struct[0].offSin;
+var raspsin = struct[0].raspsin;
+var rebsin = struct[0].rebsin;
+var slesin = struct[0].slesin;
 var commands = [coffSin,offSin,raspsin,rebsin,slesin]; //Собираем структуру для удобства обработки
 
-var comppar={name:"comppar",hostp:"192.168.0.104",usernamep:"spiderman201010@mail.ru",passwordp:"Vlad281000",type:"win"};
-var labtoppar={name:"labtoppar",hostp:"192.168.0.106",usernamep:"spiderman201010@mail.ru",passwordp:"Vlad281000",type:"win"};
-var servpar={name:"servpar",hostp:"192.168.0.107",usernamep:"root",passwordp:"258000",type:"lin"};
-var calendpar={name:"calendpar",hostp:"192.168.0.103",usernamep:"root",passwordp:"258000",type:"lin"}
-var coffedevpar={name:"coffedevpar",hostp:"192.168.0.103",usernamep:"root",passwordp:"258000",type:"coffee"};
-
-var comp=[comppar,"компьютер","пк","комп"];
-var labtop = [labtoppar,"ноутбук","ноут"];
-var serv = [servpar,"сервер"];
-var calend = [calendpar,"календарь"];
-var coffedev = [coffedevpar,"кофеварку"];
-
+var comp=struct[1].comp;
+var labtop = struct[1].labtop;
+var serv = struct[1].serv;
+var calend = struct[1].calend;
+var coffedev = struct[1].coffedev;
+//console.log(coffedev);
 var devices = [comp,serv,calend,labtop,coffedev];
 
 app.use(express.json());
@@ -210,7 +207,7 @@ function coffee(par){
         ans("Напиток скоро будет готов!");
         console.log("Кофеварка включена");
     }
- ssh_send(cmd,coffedevpar.hostp,coffedevpar.usernamep,coffedevpar.passwordp);
+    if (cmd!=null) ssh_send(cmd,coffedev[0]);
 } //Управление кофеваркой
 
 function get_dev(par){
@@ -224,7 +221,6 @@ function get_dev(par){
      }
      if(result!=false){
          return result;
-         //off_dev(param);
      } else ans("Такого устройства нет");
 } //Переводит слово в параметры устройства 
 function get_dev_off(par){
@@ -233,7 +229,7 @@ function get_dev_off(par){
     if (deviceinfo.type=="win") cmd = "shutdown -s -t 0";
     if (deviceinfo.type=="lin") cmd = "init 0";
     if (deviceinfo.type=="coffee") cmd = "echo p 18 0 > /dev/pigpio";
-  ssh_send(cmd,deviceinfo.hostp,deviceinfo.usernamep,deviceinfo.passwordp); 
+    if (cmd!=null) ssh_send(cmd,deviceinfo); 
   ans("Ваше устройство скоро выключиться!");
 } //Отправляет команду на выключение
 function get_dev_reb(par){
@@ -242,7 +238,7 @@ function get_dev_reb(par){
     if (deviceinfo.type=="win") cmd = "shutdown -r";
     if (deviceinfo.type=="lin") cmd = "init 6";
     if (deviceinfo.type=="coffee") ans("Это устройство нельзя перезагрузить"); 
-  ssh_send(cmd,deviceinfo.hostp,deviceinfo.usernamep,deviceinfo.passwordp); 
+    if (cmd!=null) ssh_send(cmd,deviceinfo); 
   ans("Ваше устройство скоро перезагруиться!");  
 } //Отправляет команду на перезагрузку
 function get_dev_sleep(par){
@@ -251,11 +247,25 @@ function get_dev_sleep(par){
   if (deviceinfo.type=="win") cmd = "shutdown -h";
   if (deviceinfo.type=="lin") ans("Это устройство не может уснуть"); 
   if (deviceinfo.type=="coffee") ans("Это устройство не может уснуть"); 
-  ssh_send(cmd,deviceinfo.hostp,deviceinfo.usernamep,deviceinfo.passwordp); 
+  if (cmd!=null) ssh_send(cmd,deviceinfo); 
   ans("Ваше устройство скоро уснет!");  
 } //Отправляет команду на сон
 
-function ssh_send(cmd,hostp,usernamep,passwordp){
+function ssh_send(cmd,device_info){
+    let usernamep,passwordp;
+    let hostp = device_info.hostp;
+    if (device_info.type=="win"){
+        usernamep = settings.pc.login
+        passwordp =  settings.pc.pass
+    }
+    if (device_info.type=="lin"){
+        usernamep = settings.serv.login
+        passwordp =  settings.serv.pass
+    }
+    if (device_info.type=="coffee"){
+    usernamep = settings.serv.login
+    passwordp =  settings.serv.pass
+    }
   let conn = new Client();
 conn.on('ready', function() {
     conn.exec(cmd, function(err, stream) {
