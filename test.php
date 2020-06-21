@@ -21,7 +21,7 @@ if (mysqli_connect_errno()) {
     exit(); 
 } 
     
-   if ($stmt = $mysqlis->prepare("SELECT timeStart, timeStop, discipline, type,teacher, cabinet, subgroup FROM `timetable` WHERE `class`='{$group}' AND `date`='{$date}' AND `subgroup`=1")) { 
+   if ($stmt = $mysqlis->prepare("SELECT timeStart, timeStop, discipline, type,teacher, cabinet, subgroup FROM `timetable` WHERE `class`='{$group}' AND `date`='{$date}' AND `subgroup`!=2")) { 
     $stmt->execute(); 
     $stmt->bind_result($col1,$col2,$col3,$col4,$col5,$col6,$col7);
     $num = 1;
