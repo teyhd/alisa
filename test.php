@@ -10,7 +10,7 @@ if ($date==0){
     $date = "$parts_date[0]-$parts_date[1]-$parts_date[2]";
 }
 
-$group ='АИСТбд-21';
+$group ='АИСТбд-31';
 $mysqlis = new mysqli("95.104.192.212", "vlad", "pXYMvrx8xILHDPxd", "raspisanie");
     if (!$mysqlis->set_charset("utf8")) {
     printf("Ошибка при загрузке набора символов utf8: %s\n", $mysqlis->error);

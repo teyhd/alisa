@@ -5,9 +5,15 @@ var rp = require('request-promise');
 var fs = require('fs');
 var Client = require('ssh2').Client;
 var io = require('socket.io');
-var key = fs.readFileSync('/var/www/html/alisa/encryption/private.key');
-var cert = fs.readFileSync('/var/www/html/alisa/encryption/primary.crt');
-var ca = fs.readFileSync('/var/www/html/alisa/encryption/intermediate.crt');
+
+/*var key = fs.readFileSync('/var/www/html/alisa/encryption/privkey.pem');
+var cert = fs.readFileSync('/var/www/html/alisa/encryption/cert.pem');
+var ca = fs.readFileSync('/var/www/html/alisa/encryption/chain.pem');*/
+
+var key = fs.readFileSync('/etc/letsencrypt/live/home.teyhd.ru/privkey.pem', 'utf8');
+var cert = fs.readFileSync('/etc/letsencrypt/live/home.teyhd.ru/cert.pem', 'utf8');
+var ca = fs.readFileSync('/etc/letsencrypt/live/home.teyhd.ru/chain.pem', 'utf8');
+
 var settings = JSON.parse(fs.readFileSync('/var/www/html/alisa/encryption/set.json', 'utf8')); //Берем настройки из файла
 var struct = JSON.parse(fs.readFileSync('/var/www/html/alisa/encryption/struct.json', 'utf8')); //Подгружаем структуры
 var options = {
@@ -30,12 +36,15 @@ var commands = [struct[0].coffSin,
                 struct[0].slesin, 
                 struct[0].ans,
                 struct[0].wake_up,
+                struct[0].ondev,
+                struct[0].ip,
                 struct[0].vkmsg]; //Собираем структуру команд для удобства обработки
                 
 var devices = [struct[1].comp,
                struct[1].serv,
                struct[1].calend,
                struct[1].labtop,
+               struct[1].mik,
                struct[1].coffedev]; //Собираем структуру устройств для удобства обработки
 
 var vkmsgs; //Сообщения из вк
@@ -47,17 +56,21 @@ user_id_to_ans[12]=460886453; //медве
 //get_msg_VK();
 app.use(express.json());
 var resA,reqA; //Сообщения глобальо доступны
+app.get('/run', function(req, res) {
+  res.send('ok');
+});
 app.post('/', function (req, res) {
     resA=res;reqA=req;
-    console.log(req.body.session.user_id);
-    console.log(req.body.request.nlu.tokens);
-    console.log(req.body.request.nlu.entities);
-   
+   console.log(req.body.session.user_id);
+   console.log(req.body.request.nlu.tokens);
+   console.log(req.body.request.nlu.entities);
+
     if (!speech(req.body.request.command)){
         if(!brain(req.body.request.nlu.tokens)){
-            ans("Я такого не знаю \nСпроси 'Что ты умеешь?'");
+            vocab(req.body.request.command,6);
         }
     }
+
    /* if ((req.body.request.command!="ping") && (req.body.request.command!="")){
           get_msg_VK();
     } */
@@ -67,6 +80,40 @@ app.use('*', function (req, res) {
   res.sendStatus(404);
 });
 var ping_value = 0;
+
+function vocab(textm,event){
+ textm = textm.toLowerCase();
+ var options = {
+    uri: 'http://localhost/admin/vendor/alise_cmd.php',
+    qs: {
+        event: event,
+        val:textm,
+        id:6,
+    }
+};
+ 
+rp(options)
+    .then(function (body) {
+        if (body!=undefined){
+            //is_ans = JSON.parse(body);
+            console.log(body);
+            if (event!=7){
+                if (body!='none') ans(body);
+                else{
+                    vocab(reqA.body.request.command,7);
+                }                
+            } else
+                 ans("Я такого не знаю \nСпроси 'Что ты умеешь?'"); 
+        } else console.log('EMPTYBLYA');
+ 
+    })
+    .catch(function (err) {
+         console.log("Произошла ошибка получения сообщений\n");
+         console.log(err);
+    });
+
+}
+
 function speech(stext){
     let answered = false;
     switch (stext) {
@@ -85,7 +132,7 @@ function speech(stext){
             ans("Не знаю");
             answered = true;
         break;
-        case 'крокодил':
+        case 'поплавок':
             set_adm();
             ans("Вы авторизованы");
             answered = true;
@@ -270,8 +317,30 @@ function get_dev_sleep(par){
   if (cmd!=null) ssh_send(cmd,deviceinfo); 
   ans("Ваше устройство скоро уснет!");  
 } //Отправляет команду на сон
+function get_dev_on(par){
+      let deviceinfo = get_dev(par);
+      if (deviceinfo.type=="coffee") {
+          ssh_send("echo p 18 255 > /dev/pigpio",deviceinfo); 
+          console.log(par);
+      } else {
+        let fake = ['роутер'];
+        deviceinfo = get_dev(fake);      
+        let cmd = "/tool wol mac=70:85:C2:93:D5:6C interface=ether4_server";
+        ssh_send(cmd,deviceinfo);          
+      }
+  ans("Команда на включение устройства отправлена");
+} //Отправляет команду на включение BETA
+
+function get_ip(par){
+    let fake = ['роутер'];
+  let deviceinfo = get_dev(fake);  
+  let cmd = "/system script run vk";
+  ssh_send(cmd,deviceinfo);
+  ans("Актуальный адрес отправлен");
+} //Отправляет команду на включение BETA
 
 function ssh_send(cmd,device_info){
+    let portS = 22;
     let usernamep,passwordp;
     let hostp = device_info.hostp;
     if (device_info.type=="win"){
@@ -282,6 +351,11 @@ function ssh_send(cmd,device_info){
         usernamep = settings.serv.login
         passwordp =  settings.serv.pass
     }
+    if (device_info.type=="swit"){
+        usernamep = settings.mik.login
+        passwordp =  settings.mik.pass
+        portS = 235;
+    }    
 
   let conn = new Client();
 conn.on('ready', function() {
@@ -300,7 +374,7 @@ conn.on('ready', function() {
   });
 }).connect({
   host: hostp,
-  port: 22,
+  port: portS,
   username: usernamep,
   password: passwordp
 });
@@ -322,6 +396,7 @@ function ans(atex){
         console.log(e);
     }
 } //Ответ пользователю
+
 
 function get_msg_VK(){
     console.log(user_id_to_ans);
@@ -477,8 +552,6 @@ function ddos_vk(anstext,whosend,wait){
             } else setTimeout(answerVK, 300, "...", whosend);;
 }//Ддосим вк
 
-
-
 function ucFirst(str) {
   if (!str) return str;
 
@@ -491,3 +564,5 @@ process.on('uncaughtException', (err) => {
 }); //Если все пошло по пизде, спасет ситуацию
 //https://teyhd.ru/alisa/test.php
 //http://localhost/weather.php
+//   /system script run vk
+///tool wol mac=70:85:C2:93:D5:6C interface=ether4_server
